@@ -1,6 +1,11 @@
-# HalloApp
+# Locations
 
-Minimale Android-App, die nur „Hallo“ anzeigt.
+Android-App zur Verwaltung von Locations – zu jeder Location lässt sich ein Radius (in Metern) einstellen.
+
+## Features
+
+- Liste von Locations mit jeweils einstellbarem Radius (Slider, 50–1000 m)
+- App-Name „Locations" mit eigenem Launcher-Icon (Standort-Pin)
 
 ## Tech-Stack
 
@@ -12,7 +17,7 @@ Minimale Android-App, die nur „Hallo“ anzeigt.
 
 1. Öffne den Tab **Actions** dieses Repositories.
 2. Wähle den neuesten erfolgreichen **Android CI**-Run.
-3. Lade unten das Artefakt **halloapp-debug-apk** herunter (enthält `app-debug.apk`).
+3. Lade unten das Artefakt **locations-debug-apk** herunter (enthält `app-debug.apk`).
 4. Entpacke die ZIP-Datei und übertrage die APK auf dein Gerät.
 5. Installiere sie („Unbekannte Quellen“ für deinen Browser/Dateimanager erlauben, falls gefragt).
 
