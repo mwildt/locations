@@ -70,3 +70,14 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: app/build/outputs/apk/**/*.apk
+
+      - name: Publish debug release on main
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: debug-latest
+          name: Debug build (main)
+          body: Automatisch erstellter Debug-Build von `main` (${{ github.sha }}).
+          prerelease: true
+          overwrite: true
+          files: app/build/outputs/apk/debug/app-debug.apk
