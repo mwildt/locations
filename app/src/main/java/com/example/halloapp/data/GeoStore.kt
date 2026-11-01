@@ -11,10 +11,12 @@ data class GeoPoint(
     val lat: Double,
     val lon: Double,
     val createdAt: Long,
-    val radiusMeters: Double = DEFAULT_RADIUS_METERS
+    val enterRadiusMeters: Double = DEFAULT_ENTER_RADIUS_METERS,
+    val exitRadiusMeters: Double = DEFAULT_EXIT_RADIUS_METERS
 ) {
     companion object {
-        const val DEFAULT_RADIUS_METERS = 50.0
+        const val DEFAULT_ENTER_RADIUS_METERS = 50.0
+        const val DEFAULT_EXIT_RADIUS_METERS = 100.0
     }
 }
 
@@ -58,8 +60,14 @@ class GeoStore(private val dir: File) {
         savePoints(points)
     }
 
-    fun updateRadius(id: Long, radiusMeters: Double) = synchronized(lock) {
-        savePoints(loadPoints().map { if (it.id == id) it.copy(radiusMeters = radiusMeters) else it })
+    fun updatePoint(id: Long, name: String, enterRadiusMeters: Double, exitRadiusMeters: Double) = synchronized(lock) {
+        savePoints(loadPoints().map {
+            if (it.id == id) it.copy(
+                name = name,
+                enterRadiusMeters = enterRadiusMeters,
+                exitRadiusMeters = exitRadiusMeters
+            ) else it
+        })
     }
 
     private fun readList(file: File): List<JSONObject> {
@@ -86,7 +94,10 @@ class GeoStore(private val dir: File) {
         lat = getDouble("lat"),
         lon = getDouble("lon"),
         createdAt = getLong("createdAt"),
-        radiusMeters = optDouble("radiusMeters", GeoPoint.DEFAULT_RADIUS_METERS)
+        enterRadiusMeters = optDouble("enterRadiusMeters",
+            optDouble("radiusMeters", GeoPoint.DEFAULT_ENTER_RADIUS_METERS)),
+        exitRadiusMeters = optDouble("exitRadiusMeters",
+            optDouble("radiusMeters", GeoPoint.DEFAULT_ENTER_RADIUS_METERS) * 2.0)
     )
 
     private fun JSONObject.toEvent() = GeoEvent(
@@ -106,7 +117,8 @@ class GeoStore(private val dir: File) {
         .put("lat", lat)
         .put("lon", lon)
         .put("createdAt", createdAt)
-        .put("radiusMeters", radiusMeters)
+        .put("enterRadiusMeters", enterRadiusMeters)
+        .put("exitRadiusMeters", exitRadiusMeters)
 
     private fun GeoEvent.toJson() = JSONObject()
         .put("id", id)

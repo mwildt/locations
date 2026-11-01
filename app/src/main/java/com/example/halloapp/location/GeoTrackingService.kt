@@ -170,7 +170,8 @@ class GeoTrackingService : Service() {
             lat = lat,
             lon = lon,
             createdAt = System.currentTimeMillis(),
-            radiusMeters = GeoPoint.DEFAULT_RADIUS_METERS
+            enterRadiusMeters = GeoPoint.DEFAULT_ENTER_RADIUS_METERS,
+            exitRadiusMeters = GeoPoint.DEFAULT_EXIT_RADIUS_METERS
         )
         store.savePoints(points + newPoint)
         points = points + newPoint
@@ -192,8 +193,8 @@ class GeoTrackingService : Service() {
         points.forEach { point ->
             val distance = GeoStore.distanceBetween(lat, lon, point.lat, point.lon)
             val wasInside = insidePoints[point.id] ?: false
-            val enterRadius = point.radiusMeters.toFloat()
-            val exitRadius = (point.radiusMeters * EXIT_HYSTERESIS_FACTOR).toFloat()
+            val enterRadius = point.enterRadiusMeters.toFloat()
+            val exitRadius = point.exitRadiusMeters.toFloat()
             val isInside = distance <= enterRadius
             if (isInside && !wasInside) {
                 insidePoints[point.id] = true
@@ -261,7 +262,6 @@ class GeoTrackingService : Service() {
         const val EXTRA_LON = "com.example.halloapp.extra.LON"
         const val ACTION_REFRESH_POINTS = "com.example.halloapp.action.REFRESH_POINTS"
         const val ACTION_STOP = "com.example.halloapp.action.STOP"
-        const val EXIT_HYSTERESIS_FACTOR = 2.0
         private const val CHANNEL_ID = "geo_tracking"
         private const val NOTIFICATION_ID = 1
         private const val LOCATION_INTERVAL_MS = 10_000L

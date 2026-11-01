@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.halloapp.data.GeoPoint
 import com.example.halloapp.location.CurrentLocationHolder
-import com.example.halloapp.location.GeoTrackingService
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory
 import org.osmdroid.util.BoundingBox
@@ -102,11 +101,11 @@ fun GeoMapView(
                     view.overlays.removeAll { it is Marker || it is Polygon }
 
                     geoPoints.forEach { point ->
-                        addCircles(view, point.lat, point.lon, point.radiusMeters, blue = true, title = point.name)
+                        addCircles(view, point.lat, point.lon, point.enterRadiusMeters, point.exitRadiusMeters, blue = true, title = point.name)
                     }
 
                     pending?.let { (lat, lon) ->
-                        addCircles(view, lat, lon, GeoPoint.DEFAULT_RADIUS_METERS, blue = false, title = "Neue Position")
+                        addCircles(view, lat, lon, GeoPoint.DEFAULT_ENTER_RADIUS_METERS, GeoPoint.DEFAULT_EXIT_RADIUS_METERS, blue = false, title = "Neue Position")
                     }
 
                     currentLat?.let { lat ->
@@ -197,7 +196,8 @@ private fun addCircles(
     view: MapView,
     lat: Double,
     lon: Double,
-    radiusMeters: Double,
+    enterRadiusMeters: Double,
+    exitRadiusMeters: Double,
     blue: Boolean,
     title: String
 ) {
@@ -211,14 +211,14 @@ private fun addCircles(
     val stroke = if (blue) 2f else 3f
 
     val enterCircle = Polygon(view)
-    enterCircle.setPoints(Polygon.pointsAsCircle(center, radiusMeters))
+    enterCircle.setPoints(Polygon.pointsAsCircle(center, enterRadiusMeters))
     enterCircle.outlinePaint.color = outline
     enterCircle.outlinePaint.strokeWidth = stroke
     enterCircle.fillPaint.color = fillEnter
     view.overlays.add(enterCircle)
 
     val exitCircle = Polygon(view)
-    exitCircle.setPoints(Polygon.pointsAsCircle(center, radiusMeters * GeoTrackingService.EXIT_HYSTERESIS_FACTOR))
+    exitCircle.setPoints(Polygon.pointsAsCircle(center, exitRadiusMeters))
     exitCircle.outlinePaint.color = outline
     exitCircle.outlinePaint.strokeWidth = stroke
     exitCircle.outlinePaint.setPathEffect(android.graphics.DashPathEffect(floatArrayOf(10f, 10f), 0f))

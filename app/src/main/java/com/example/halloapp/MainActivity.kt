@@ -65,8 +65,8 @@ class MainActivity : ComponentActivity() {
                     requestBackgroundPermission = { backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) },
                     onMark = { name -> GeoTrackingService.mark(this, name) },
                     onSaveAt = { lat, lon, name -> GeoTrackingService.savePointAt(this, lat, lon, name) },
-                    onRadiusChange = { id, radius ->
-                        store.updateRadius(id, radius.toDouble())
+                    onSavePoint = { id, name, enterRadius, exitRadius ->
+                        store.updatePoint(id, name, enterRadius.toDouble(), exitRadius.toDouble())
                         GeoTrackingService.refreshPoints(this)
                     },
                     onStartService = { GeoTrackingService.start(this) },
@@ -116,7 +116,7 @@ fun GeoAppScreen(
     requestBackgroundPermission: () -> Unit,
     onMark: (String) -> Unit,
     onSaveAt: (Double, Double, String) -> Unit,
-    onRadiusChange: (Long, Float) -> Unit,
+    onSavePoint: (Long, String, Float, Float) -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit
 ) {
@@ -129,6 +129,7 @@ fun GeoAppScreen(
     var locationIssue by remember { mutableStateOf<String?>(null) }
     var currentLat by remember { mutableStateOf<Double?>(null) }
     var currentLon by remember { mutableStateOf<Double?>(null) }
+    var editingPointId by remember { mutableStateOf<Long?>(null) }
 
     LaunchedEffect(Unit) {
         while (true) {
@@ -149,7 +150,10 @@ fun GeoAppScreen(
         }
     }
 
-    BackHandler(enabled = tab != 0) {
+    BackHandler(enabled = editingPointId != null) {
+        editingPointId = null
+    }
+    BackHandler(enabled = editingPointId == null && tab != 0) {
         tab = 0
     }
 
@@ -224,8 +228,18 @@ fun GeoAppScreen(
                 Tab(selected = tab == 2, onClick = { tab = 2 }, text = { Text("Karte") })
             }
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
-                when (tab) {
-                    0 -> PointsList(points, currentLat, currentLon, onRadiusChange)
+                val editingPoint = points.firstOrNull { it.id == editingPointId }
+                if (editingPoint != null) {
+                    PointEditScreen(
+                        point = editingPoint,
+                        onSave = { name, enterRadius, exitRadius ->
+                            onSavePoint(editingPoint.id, name, enterRadius, exitRadius)
+                            editingPointId = null
+                        },
+                        onBack = { editingPointId = null }
+                    )
+                } else when (tab) {
+                    0 -> PointsList(points, currentLat, currentLon, onEdit = { editingPointId = it })
                     1 -> EventsList(events)
                     else -> GeoMapView(
                         geoPoints = points,
@@ -291,7 +305,7 @@ fun PointsList(
     points: List<GeoPoint>,
     currentLat: Double?,
     currentLon: Double?,
-    onRadiusChange: (Long, Float) -> Unit
+    onEdit: (Long) -> Unit
 ) {
     if (points.isEmpty()) {
         EmptyHint("Noch keine Punkte markiert. Tippe auf „Position markieren“.")
@@ -301,7 +315,7 @@ fun PointsList(
         items(points.reversed(), key = { it.id }) { point ->
             val distanceText = if (currentLat != null && currentLon != null) {
                 val d = GeoStore.distanceBetween(currentLat, currentLon, point.lat, point.lon)
-                if (d <= point.radiusMeters.toFloat()) {
+                if (d <= point.enterRadiusMeters.toFloat()) {
                     "📍 im Geofence – %.0f m entfernt".format(d)
                 } else {
                     "%.0f m entfernt".format(d)
@@ -309,44 +323,88 @@ fun PointsList(
             } else {
                 null
             }
-            Column {
-                ListItem(
-                    headlineContent = { Text(point.name) },
-                    supportingContent = {
-                        Column {
-                            Text("%.5f / %.5f – %s".format(point.lat, point.lon, formatTime(point.createdAt)))
-                            distanceText?.let {
-                                Text(
-                                    it,
-                                    color = if (it.startsWith("📍")) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
+            ListItem(
+                headlineContent = { Text(point.name) },
+                supportingContent = {
+                    Column {
+                        Text("%.5f / %.5f – %s".format(point.lat, point.lon, formatTime(point.createdAt)))
+                        Text("In: ${point.enterRadiusMeters.toInt()} m · Out: ${point.exitRadiusMeters.toInt()} m")
+                        distanceText?.let {
+                            Text(
+                                it,
+                                color = if (it.startsWith("📍")) MaterialTheme.colorScheme.primary
+                                else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
-                )
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text("Radius", style = MaterialTheme.typography.bodyMedium)
-                    Text("${point.radiusMeters.toInt()} m", style = MaterialTheme.typography.bodyMedium)
+                },
+                trailingContent = {
+                    TextButton(onClick = { onEdit(point.id) }) {
+                        Text("Bearbeiten")
+                    }
                 }
-                Slider(
-                    value = point.radiusMeters.toFloat(),
-                    onValueChange = { onRadiusChange(point.id, it) },
-                    valueRange = 10f..500f,
-                    steps = 48,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                )
-            }
+            )
             HorizontalDivider()
         }
+    }
+}
+
+@Composable
+fun PointEditScreen(
+    point: GeoPoint,
+    onSave: (String, Float, Float) -> Unit,
+    onBack: () -> Unit
+) {
+    var name by remember { mutableStateOf(point.name) }
+    var enterRadius by remember { mutableStateOf(point.enterRadiusMeters.toFloat()) }
+    var exitRadius by remember { mutableStateOf(point.exitRadiusMeters.toFloat()) }
+
+    BackHandler(onBack = onBack)
+
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text("Location bearbeiten", style = MaterialTheme.typography.headlineSmall)
+        OutlinedTextField(
+            value = name,
+            onValueChange = { name = it },
+            label = { Text("Name") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        RadiusSlider(label = "Radius Betreten (In)", value = enterRadius, onChange = { enterRadius = it })
+        RadiusSlider(label = "Radius Verlassen (Out)", value = exitRadius, onChange = { exitRadius = it })
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { onSave(name.ifBlank { "Punkt" }, enterRadius, exitRadius) }) {
+                Text("Speichern")
+            }
+            TextButton(onClick = onBack) {
+                Text("Abbrechen")
+            }
+        }
+    }
+}
+
+@Composable
+private fun RadiusSlider(label: String, value: Float, onChange: (Float) -> Unit) {
+    Column {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(label, style = MaterialTheme.typography.bodyMedium)
+            Text("${value.toInt()} m", style = MaterialTheme.typography.bodyMedium)
+        }
+        Slider(
+            value = value,
+            onValueChange = onChange,
+            valueRange = 10f..1000f,
+            steps = 98,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }
 
