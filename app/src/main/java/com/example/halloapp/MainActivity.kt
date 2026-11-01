@@ -116,6 +116,7 @@ fun GeoAppScreen(
     requestBackgroundPermission: () -> Unit,
     onMark: (String) -> Unit,
     onSaveAt: (Double, Double, String) -> Unit,
+    onRadiusChange: (Long, Float) -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit
 ) {
