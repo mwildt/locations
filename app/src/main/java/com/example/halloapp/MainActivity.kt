@@ -65,6 +65,10 @@ class MainActivity : ComponentActivity() {
                     requestBackgroundPermission = { backgroundPermissionLauncher.launch(Manifest.permission.ACCESS_BACKGROUND_LOCATION) },
                     onMark = { name -> GeoTrackingService.mark(this, name) },
                     onSaveAt = { lat, lon, name -> GeoTrackingService.savePointAt(this, lat, lon, name) },
+                    onRadiusChange = { id, radius ->
+                        store.updateRadius(id, radius.toDouble())
+                        GeoTrackingService.refreshPoints(this)
+                    },
                     onStartService = { GeoTrackingService.start(this) },
                     onStopService = { GeoTrackingService.stop(this) }
                 )
@@ -220,7 +224,7 @@ fun GeoAppScreen(
             }
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 when (tab) {
-                    0 -> PointsList(points, currentLat, currentLon)
+                    0 -> PointsList(points, currentLat, currentLon, onRadiusChange)
                     1 -> EventsList(events)
                     else -> GeoMapView(
                         geoPoints = points,
@@ -282,7 +286,12 @@ fun NameDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
 }
 
 @Composable
-fun PointsList(points: List<GeoPoint>, currentLat: Double?, currentLon: Double?) {
+fun PointsList(
+    points: List<GeoPoint>,
+    currentLat: Double?,
+    currentLon: Double?,
+    onRadiusChange: (Long, Float) -> Unit
+) {
     if (points.isEmpty()) {
         EmptyHint("Noch keine Punkte markiert. Tippe auf „Position markieren“.")
         return
@@ -291,7 +300,7 @@ fun PointsList(points: List<GeoPoint>, currentLat: Double?, currentLon: Double?)
         items(points.reversed(), key = { it.id }) { point ->
             val distanceText = if (currentLat != null && currentLon != null) {
                 val d = GeoStore.distanceBetween(currentLat, currentLon, point.lat, point.lon)
-                if (d <= GeoTrackingService.ENTER_RADIUS_M) {
+                if (d <= point.radiusMeters.toFloat()) {
                     "📍 im Geofence – %.0f m entfernt".format(d)
                 } else {
                     "%.0f m entfernt".format(d)
@@ -299,21 +308,42 @@ fun PointsList(points: List<GeoPoint>, currentLat: Double?, currentLon: Double?)
             } else {
                 null
             }
-            ListItem(
-                headlineContent = { Text(point.name) },
-                supportingContent = {
-                    Column {
-                        Text("%.5f / %.5f – %s".format(point.lat, point.lon, formatTime(point.createdAt)))
-                        distanceText?.let {
-                            Text(
-                                it,
-                                color = if (it.startsWith("📍")) MaterialTheme.colorScheme.primary
-                                else MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+            Column {
+                ListItem(
+                    headlineContent = { Text(point.name) },
+                    supportingContent = {
+                        Column {
+                            Text("%.5f / %.5f – %s".format(point.lat, point.lon, formatTime(point.createdAt)))
+                            distanceText?.let {
+                                Text(
+                                    it,
+                                    color = if (it.startsWith("📍")) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Radius", style = MaterialTheme.typography.bodyMedium)
+                    Text("${point.radiusMeters.toInt()} m", style = MaterialTheme.typography.bodyMedium)
                 }
-            )
+                Slider(
+                    value = point.radiusMeters.toFloat(),
+                    onValueChange = { onRadiusChange(point.id, it) },
+                    valueRange = 10f..500f,
+                    steps = 48,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                )
+            }
             HorizontalDivider()
         }
     }

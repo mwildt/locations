@@ -10,8 +10,13 @@ data class GeoPoint(
     val name: String,
     val lat: Double,
     val lon: Double,
-    val createdAt: Long
-)
+    val createdAt: Long,
+    val radiusMeters: Double = DEFAULT_RADIUS_METERS
+) {
+    companion object {
+        const val DEFAULT_RADIUS_METERS = 50.0
+    }
+}
 
 data class GeoEvent(
     val id: Long,
@@ -53,6 +58,10 @@ class GeoStore(private val dir: File) {
         savePoints(points)
     }
 
+    fun updateRadius(id: Long, radiusMeters: Double) = synchronized(lock) {
+        savePoints(loadPoints().map { if (it.id == id) it.copy(radiusMeters = radiusMeters) else it })
+    }
+
     private fun readList(file: File): List<JSONObject> {
         if (!file.exists()) return emptyList()
         return runCatching {
@@ -76,7 +85,8 @@ class GeoStore(private val dir: File) {
         name = optString("name", "Punkt"),
         lat = getDouble("lat"),
         lon = getDouble("lon"),
-        createdAt = getLong("createdAt")
+        createdAt = getLong("createdAt"),
+        radiusMeters = optDouble("radiusMeters", GeoPoint.DEFAULT_RADIUS_METERS)
     )
 
     private fun JSONObject.toEvent() = GeoEvent(
@@ -96,6 +106,7 @@ class GeoStore(private val dir: File) {
         .put("lat", lat)
         .put("lon", lon)
         .put("createdAt", createdAt)
+        .put("radiusMeters", radiusMeters)
 
     private fun GeoEvent.toJson() = JSONObject()
         .put("id", id)

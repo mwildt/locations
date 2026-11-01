@@ -1,6 +1,6 @@
-# HalloApp
+# Locations
 
-Minimale Android-App, die nur „Hallo“ anzeigt.
+Android-App für Geofencing: Punkte auf der Karte markieren und pro Location einen eigenen Radius einstellen.
 
 ## Tech-Stack
 
@@ -12,7 +12,7 @@ Minimale Android-App, die nur „Hallo“ anzeigt.
 
 1. Öffne den Tab **Actions** dieses Repositories.
 2. Wähle den neuesten erfolgreichen **Android CI**-Run.
-3. Lade unten das Artefakt **halloapp-debug-apk** herunter (enthält `app-debug.apk`).
+3. Lade unten das Artefakt **locations-debug-apk** herunter (enthält `app-debug.apk`).
 4. Entpacke die ZIP-Datei und übertrage die APK auf dein Gerät.
 5. Installiere sie („Unbekannte Quellen“ für deinen Browser/Dateimanager erlauben, falls gefragt).
 

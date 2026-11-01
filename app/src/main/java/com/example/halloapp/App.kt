@@ -7,7 +7,7 @@ class App : Application() {
     override fun onCreate() {
         super.onCreate()
         Configuration.getInstance().apply {
-            userAgentValue = "HalloApp/1.1 (Android; OSM tiles)"
+            userAgentValue = "Locations/1.5 (Android; OSM tiles)"
         }
     }
 }
