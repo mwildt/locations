@@ -69,6 +69,10 @@ class MainActivity : ComponentActivity() {
                         store.updatePoint(id, name, enterRadius.toDouble(), exitRadius.toDouble())
                         GeoTrackingService.refreshPoints(this)
                     },
+                    onDeletePoint = { id ->
+                        store.deletePoint(id)
+                        GeoTrackingService.refreshPoints(this)
+                    },
                     onStartService = { GeoTrackingService.start(this) },
                     onStopService = { GeoTrackingService.stop(this) }
                 )
@@ -117,6 +121,7 @@ fun GeoAppScreen(
     onMark: (String) -> Unit,
     onSaveAt: (Double, Double, String) -> Unit,
     onSavePoint: (Long, String, Float, Float) -> Unit,
+    onDeletePoint: (Long) -> Unit,
     onStartService: () -> Unit,
     onStopService: () -> Unit
 ) {
@@ -236,6 +241,10 @@ fun GeoAppScreen(
                             onSavePoint(editingPoint.id, name, enterRadius, exitRadius)
                             editingPointId = null
                         },
+                        onDelete = {
+                            onDeletePoint(editingPoint.id)
+                            editingPointId = null
+                        },
                         onBack = { editingPointId = null }
                     )
                 } else when (tab) {
@@ -353,13 +362,33 @@ fun PointsList(
 fun PointEditScreen(
     point: GeoPoint,
     onSave: (String, Float, Float) -> Unit,
+    onDelete: () -> Unit,
     onBack: () -> Unit
 ) {
     var name by remember { mutableStateOf(point.name) }
     var enterRadius by remember { mutableStateOf(point.enterRadiusMeters.toFloat()) }
     var exitRadius by remember { mutableStateOf(point.exitRadiusMeters.toFloat()) }
+    var showDeleteDialog by remember { mutableStateOf(false) }
 
     BackHandler(onBack = onBack)
+
+    if (showDeleteDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteDialog = false },
+            title = { Text("Location löschen?") },
+            text = { Text("„${point.name}“ wird endgültig gelöscht. Zugehörige Events bleiben erhalten.") },
+            confirmButton = {
+                TextButton(onClick = { showDeleteDialog = false; onDelete() }) {
+                    Text("Löschen")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteDialog = false }) {
+                    Text("Abbrechen")
+                }
+            }
+        )
+    }
 
     Column(
         modifier = Modifier
@@ -384,6 +413,14 @@ fun PointEditScreen(
             TextButton(onClick = onBack) {
                 Text("Abbrechen")
             }
+        }
+        OutlinedButton(
+            onClick = { showDeleteDialog = true },
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error
+            )
+        ) {
+            Text("Location löschen")
         }
     }
 }
